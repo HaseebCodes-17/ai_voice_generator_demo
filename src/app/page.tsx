@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { FiUpload, FiPlay, FiPause, FiDownload } from "react-icons/fi";
 import { RiVoiceprintLine } from "react-icons/ri";
-import { BsMagic, BsCheckCircle } from "react-icons/bs";``
+import { BsMagic, BsCheckCircle } from "react-icons/bs";
 
 export default function VoiceGenerator() {
   const [text, setText] = useState("");
@@ -142,9 +142,10 @@ export default function VoiceGenerator() {
       setAudioUrl(url);
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
-    } catch (error: any) {
-      console.error("Error:", error);
-      alert(error.message || "An error occurred during voice generation");
+    } catch (error) {
+      const err = error as Error;
+      console.error("Error:", err);
+      alert(err.message || "An error occurred during voice generation");
     } finally {
       setIsLoading(false);
       setProgress(100);

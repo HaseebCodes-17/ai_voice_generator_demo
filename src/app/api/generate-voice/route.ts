@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
-import axios from "axios";
+import axios, { AxiosError } from "axios";
+
+interface ElevenLabsError {
+  message?: string;
+  details?: string;
+}
 
 export async function POST(request: Request) {
   const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
@@ -49,7 +54,7 @@ export async function POST(request: Request) {
 
       let clonedVoiceId: string;
       try {
-        const cloneResponse = await axios.post(
+        const cloneResponse = await axios.post<{ voice_id: string }>(
           "https://api.elevenlabs.io/v1/voices/add",
           cloneFormData,
           {
@@ -65,12 +70,16 @@ export async function POST(request: Request) {
         if (!clonedVoiceId) {
           throw new Error("No voice_id returned from cloning API");
         }
-      } catch (error: any) {
-        console.error("Cloning error:", error.response?.data || error.message);
+      } catch (error) {
+        const axiosError = error as AxiosError<ElevenLabsError>;
+        console.error(
+          "Cloning error:",
+          axiosError.response?.data || axiosError.message
+        );
         return NextResponse.json(
           {
             error: "Voice cloning failed",
-            details: error.response?.data?.message || error.message,
+            details: axiosError.response?.data?.message || axiosError.message,
           },
           { status: 500 }
         );
@@ -78,7 +87,7 @@ export async function POST(request: Request) {
 
       // Generate speech with cloned voice
       try {
-        const ttsResponse = await axios.post(
+        const ttsResponse = await axios.post<ArrayBuffer>(
           `https://api.elevenlabs.io/v1/text-to-speech/${clonedVoiceId}`,
           {
             text,
@@ -117,7 +126,8 @@ export async function POST(request: Request) {
             "Content-Disposition": 'attachment; filename="cloned-voice.mp3"',
           },
         });
-      } catch (error: any) {
+      } catch (error) {
+        const axiosError = error as AxiosError<ElevenLabsError>;
         // Attempt to clean up even if TTS fails
         await axios
           .delete(`https://api.elevenlabs.io/v1/voices/${clonedVoiceId}`, {
@@ -133,10 +143,10 @@ export async function POST(request: Request) {
           });
 
         const errorDetails =
-          error.response?.data?.message ||
-          (error.response?.data
-            ? JSON.stringify(error.response.data)
-            : error.message);
+          axiosError.response?.data?.message ||
+          (axiosError.response?.data
+            ? JSON.stringify(axiosError.response.data)
+            : axiosError.message);
         console.error("TTS error:", errorDetails);
         return NextResponse.json(
           {
@@ -157,7 +167,7 @@ export async function POST(request: Request) {
     }
 
     try {
-      const response = await axios.post(
+      const response = await axios.post<ArrayBuffer>(
         `https://api.elevenlabs.io/v1/text-to-speech/${voice}`,
         {
           text,
@@ -185,12 +195,13 @@ export async function POST(request: Request) {
           "Content-Disposition": 'attachment; filename="generated-voice.mp3"',
         },
       });
-    } catch (error: any) {
+    } catch (error) {
+      const axiosError = error as AxiosError<ElevenLabsError>;
       const errorDetails =
-        error.response?.data?.message ||
-        (error.response?.data
-          ? JSON.stringify(error.response.data)
-          : error.message);
+        axiosError.response?.data?.message ||
+        (axiosError.response?.data
+          ? JSON.stringify(axiosError.response.data)
+          : axiosError.message);
       console.error("TTS error:", errorDetails);
       return NextResponse.json(
         {
@@ -200,12 +211,13 @@ export async function POST(request: Request) {
         { status: 500 }
       );
     }
-  } catch (error: any) {
-    console.error("Unexpected error:", error);
+  } catch (error) {
+    const err = error as Error;
+    console.error("Unexpected error:", err);
     return NextResponse.json(
       {
         error: "Internal server error",
-        details: error.message,
+        details: err.message,
       },
       { status: 500 }
     );
